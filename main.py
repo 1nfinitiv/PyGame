@@ -26,6 +26,8 @@ YELLOW = (255, 255, 0)
 BROWN = (139, 69, 19)
 GRAY = (128, 128, 128)
 DARK_GREEN = (0, 100, 0)
+LIGHT_BLUE = (173, 216, 230)
+DARK_BLUE = (0, 0, 139)
 
 
 def load_texture(path, size=None):
@@ -37,6 +39,7 @@ def load_texture(path, size=None):
 
 textures = {
     'background': load_texture('texture/grass.png', (SCREEN_WIDTH, SCREEN_HEIGHT)),
+    'menu_background': load_texture('texture/menu_bg.jpg', (SCREEN_WIDTH, SCREEN_HEIGHT)),
     'town_hall': load_texture('texture/house1.png', (GRID_SIZE * 2, GRID_SIZE * 2)),
     'barracks': load_texture('texture/barracks.png', (GRID_SIZE * 2, GRID_SIZE * 2)),
     'gold_mine': load_texture('texture/Gold_Mine.png', (GRID_SIZE, GRID_SIZE)),
@@ -66,6 +69,7 @@ class GameState(Enum):
     BATTLE = 2
     WIN = 3
     LOSE = 4
+    HELP = 5
 
 
 class Difficulty(Enum):
@@ -85,6 +89,32 @@ class UnitType(Enum):
     WARRIOR = 0
     ARCHER = 1
     GIANT = 2
+
+
+class Button:
+    def __init__(self, x, y, width, height, text, color, hover_color, text_color=BLACK):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.color = color
+        self.hover_color = hover_color
+        self.text_color = text_color
+        self.is_hovered = False
+
+    def draw(self, screen, font):
+        color = self.hover_color if self.is_hovered else self.color
+        pygame.draw.rect(screen, color, self.rect)
+        pygame.draw.rect(screen, BLACK, self.rect, 2)  # Border
+
+        text_surface = font.render(self.text, True, self.text_color)
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+
+    def check_hover(self, mouse_pos):
+        self.is_hovered = self.rect.collidepoint(mouse_pos)
+        return self.is_hovered
+
+    def is_clicked(self, mouse_pos, mouse_click):
+        return self.rect.collidepoint(mouse_pos) and mouse_click
 
 
 class Building:
@@ -581,7 +611,7 @@ class Unit:
 class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Clash of Pygame")
+        pygame.display.set_caption("Clash of Berserk")
         self.clock = pygame.time.Clock()
         self.running = True
         self.state = GameState.MENU
@@ -596,9 +626,17 @@ class Game:
         self.buildings = []
         self.units = []
         self.font = pygame.font.SysFont(None, 36)
+        self.small_font = pygame.font.SysFont(None, 24)
         self.selected_wall = None
         self.selected_barracks = None
         self.selected_mine = None
+
+        # Кнопки
+        self.help_button = Button(SCREEN_WIDTH - 120, 20, 100, 40, "Помощь", LIGHT_BLUE, BLUE, BLACK)
+        self.back_button = Button(SCREEN_WIDTH // 2 - 50, SCREEN_HEIGHT - 80, 100, 40, "Назад", LIGHT_BLUE, BLUE, BLACK)
+        self.easy_button = Button(300, 200, 200, 50, "Легко", GREEN, DARK_GREEN, BLACK)
+        self.medium_button = Button(300, 300, 200, 50, "Средне", YELLOW, (200, 200, 0), BLACK)
+        self.hard_button = Button(300, 400, 200, 50, "Сложно", RED, (200, 0, 0), BLACK)
 
         self.init_village()
 
@@ -664,10 +702,62 @@ class Game:
         self.units.append(enemy)
         return enemy
 
+    def draw_help_screen(self):
+        # Полупрозрачный фон
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+
+        # Заголовок
+        title = self.font.render("Управление и помощь", True, WHITE)
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        # Управление
+        controls = [
+            "Управление в меню:",
+            "- ЛКМ: Выбрать уровень сложности",
+            "",
+            "Управление в игре:",
+            "- 1: Выбрать казармы (100 золота)",
+            "- 2: Выбрать шахту (75 золота)",
+            "- 3: Выбрать стену (50 золота)",
+            "- ЛКМ: Построить/Выбрать здание",
+            "- ПКМ: Отменить выбор здания",
+            "- F: Пополнить запас выбранного барака (50 золота)",
+            "- R: Восстановить шахту (75 золота)",
+            "- M: Включить/выключить музыку",
+            "- +: Увеличить громкость",
+            "- -: Уменьшить громкость",
+            "",
+            "Цель игры:",
+            "- Защитите Town Hall от 3 волн врагов",
+            "- Используйте стены для защиты",
+            "- Шахты дают золото для строительства",
+            "- Казармы автоматически нанимают войска"
+        ]
+
+        for i, line in enumerate(controls):
+            if line:  # Пропускаем пустые строки
+                text = self.small_font.render(line, True, WHITE)
+                self.screen.blit(text, (100, 120 + i * 30))
+
+        # Кнопка назад
+        self.back_button.draw(self.screen, self.font)
+
     def handle_events(self):
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_click = False
+        right_click = False
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Левый клик
+                    mouse_click = True
+                elif event.button == 3:  # Правый клик
+                    right_click = True
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_m:  # M - вкл/выкл музыку
@@ -686,108 +776,119 @@ class Game:
                         self.selected_barracks.refill_gold(self, 50)
                 elif event.key == pygame.K_r:  # R - восстановить шахту
                     if self.selected_mine and self.selected_mine.health <= 0:
-                        # Удаляем старую шахту и создаем новую на том же месте
                         self.buildings.remove(self.selected_mine)
                         new_mine = Building(self.selected_mine.x, self.selected_mine.y,
                                             BuildingType.GOLD_MINE, self.difficulty)
                         self.buildings.append(new_mine)
                         self.selected_mine = new_mine
+                elif event.key == pygame.K_ESCAPE:  # ESC - вернуться из меню помощи
+                    if self.state == GameState.HELP:
+                        self.state = GameState.BUILD if self.build_timer < self.build_time else GameState.BATTLE
+                elif event.key == pygame.K_1 and self.state in [GameState.BUILD, GameState.BATTLE]:
+                    self.selected_building = BuildingType.BARRACKS
+                    self.selected_barracks = None
+                    self.selected_mine = None
+                elif event.key == pygame.K_2 and self.state in [GameState.BUILD, GameState.BATTLE]:
+                    self.selected_building = BuildingType.GOLD_MINE
+                    self.selected_barracks = None
+                    self.selected_mine = None
+                elif event.key == pygame.K_3 and self.state in [GameState.BUILD, GameState.BATTLE]:
+                    self.selected_building = BuildingType.WALL
+                    self.selected_barracks = None
+                    self.selected_mine = None
 
-            if self.state == GameState.MENU:
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
-                    if 300 <= mouse_pos[0] <= 500 and 200 <= mouse_pos[1] <= 250:
-                        self.difficulty = Difficulty.EASY
-                        self.gold = 500
-                        self.state = GameState.BUILD
-                    elif 300 <= mouse_pos[0] <= 500 and 300 <= mouse_pos[1] <= 350:
-                        self.difficulty = Difficulty.MEDIUM
-                        self.gold = 400
-                        self.state = GameState.BUILD
-                    elif 300 <= mouse_pos[0] <= 500 and 400 <= mouse_pos[1] <= 450:
-                        self.difficulty = Difficulty.HARD
-                        self.gold = 300
-                        self.state = GameState.BUILD
+        # Проверка кнопок
+        if self.state == GameState.MENU:
+            self.easy_button.check_hover(mouse_pos)
+            self.medium_button.check_hover(mouse_pos)
+            self.hard_button.check_hover(mouse_pos)
 
-            elif self.state in [GameState.BUILD, GameState.BATTLE]:
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_1:
-                        self.selected_building = BuildingType.BARRACKS
-                        self.selected_barracks = None
-                        self.selected_mine = None
-                    elif event.key == pygame.K_2:
-                        self.selected_building = BuildingType.GOLD_MINE
-                        self.selected_barracks = None
-                        self.selected_mine = None
-                    elif event.key == pygame.K_3:
-                        self.selected_building = BuildingType.WALL
-                        self.selected_barracks = None
-                        self.selected_mine = None
+            if mouse_click:
+                if self.easy_button.is_clicked(mouse_pos, mouse_click):
+                    self.difficulty = Difficulty.EASY
+                    self.gold = 500
+                    self.state = GameState.BUILD
+                elif self.medium_button.is_clicked(mouse_pos, mouse_click):
+                    self.difficulty = Difficulty.MEDIUM
+                    self.gold = 400
+                    self.state = GameState.BUILD
+                elif self.hard_button.is_clicked(mouse_pos, mouse_click):
+                    self.difficulty = Difficulty.HARD
+                    self.gold = 300
+                    self.state = GameState.BUILD
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
+        elif self.state == GameState.HELP:
+            self.back_button.check_hover(mouse_pos)
+            if mouse_click and self.back_button.is_clicked(mouse_pos, mouse_click):
+                self.state = GameState.BUILD if self.build_timer < self.build_time else GameState.BATTLE
 
-                    if event.button == 1:  # Левый клик
-                        if self.selected_building:
-                            grid_x = (mouse_pos[0] // GRID_SIZE) * GRID_SIZE
-                            grid_y = (mouse_pos[1] // GRID_SIZE) * GRID_SIZE
+        elif self.state in [GameState.BUILD, GameState.BATTLE]:
+            self.help_button.check_hover(mouse_pos)
+            if mouse_click and self.help_button.is_clicked(mouse_pos, mouse_click):
+                self.state = GameState.HELP
 
-                            valid_position = True
-                            new_width = 2 if self.selected_building in [BuildingType.TOWN_HALL,
-                                                                        BuildingType.BARRACKS] else 1
-                            new_height = 2 if self.selected_building in [BuildingType.TOWN_HALL,
-                                                                         BuildingType.BARRACKS] else 1
+            if right_click:  # Обработка ПКМ для отмены выбора
+                self.selected_building = None
+                self.selected_barracks = None
+                self.selected_mine = None
 
-                            if (grid_x < BORDER_OFFSET or
-                                    grid_x + new_width * GRID_SIZE > SCREEN_WIDTH - BORDER_OFFSET or
-                                    grid_y < BORDER_OFFSET or
-                                    grid_y + new_height * GRID_SIZE > SCREEN_HEIGHT - BORDER_OFFSET):
-                                valid_position = False
+            if mouse_click:
+                if self.selected_building:
+                    grid_x = (mouse_pos[0] // GRID_SIZE) * GRID_SIZE
+                    grid_y = (mouse_pos[1] // GRID_SIZE) * GRID_SIZE
 
-                            for building in self.buildings:
-                                if (grid_x < building.x + building.width * GRID_SIZE and
-                                        grid_x + new_width * GRID_SIZE > building.x and
-                                        grid_y < building.y + building.height * GRID_SIZE and
-                                        grid_y + new_height * GRID_SIZE > building.y):
-                                    valid_position = False
-                                    break
+                    valid_position = True
+                    new_width = 2 if self.selected_building in [BuildingType.TOWN_HALL, BuildingType.BARRACKS] else 1
+                    new_height = 2 if self.selected_building in [BuildingType.TOWN_HALL, BuildingType.BARRACKS] else 1
 
-                            if valid_position:
-                                cost = 0
-                                if self.selected_building == BuildingType.BARRACKS:
-                                    cost = 100
-                                elif self.selected_building == BuildingType.GOLD_MINE:
-                                    cost = 75
-                                elif self.selected_building == BuildingType.WALL:
-                                    cost = 50
+                    if (grid_x < BORDER_OFFSET or
+                            grid_x + new_width * GRID_SIZE > SCREEN_WIDTH - BORDER_OFFSET or
+                            grid_y < BORDER_OFFSET or
+                            grid_y + new_height * GRID_SIZE > SCREEN_HEIGHT - BORDER_OFFSET):
+                        valid_position = False
 
-                                if self.gold >= cost:
-                                    self.gold -= cost
-                                    new_building = Building(grid_x, grid_y, self.selected_building, self.difficulty)
-                                    self.buildings.append(new_building)
-                        else:
-                            # Сброс выбора
-                            self.selected_barracks = None
-                            self.selected_mine = None
+                    for building in self.buildings:
+                        if (grid_x < building.x + building.width * GRID_SIZE and
+                                grid_x + new_width * GRID_SIZE > building.x and
+                                grid_y < building.y + building.height * GRID_SIZE and
+                                grid_y + new_height * GRID_SIZE > building.y):
+                            valid_position = False
+                            break
 
-                            # Выбор здания для взаимодействия
-                            for building in self.buildings:
-                                if (building.x <= mouse_pos[0] <= building.x + building.width * GRID_SIZE and
-                                        building.y <= mouse_pos[1] <= building.y + building.height * GRID_SIZE):
-                                    if building.type == BuildingType.WALL and building.health <= 0:
-                                        building.repair(self)
-                                    elif building.type == BuildingType.BARRACKS:
-                                        self.selected_barracks = building
-                                    elif building.type == BuildingType.GOLD_MINE:
-                                        self.selected_mine = building
-                                    break
+                    if valid_position:
+                        cost = 0
+                        if self.selected_building == BuildingType.BARRACKS:
+                            cost = 100
+                        elif self.selected_building == BuildingType.GOLD_MINE:
+                            cost = 75
+                        elif self.selected_building == BuildingType.WALL:
+                            cost = 50
 
-                    elif event.button == 3:  # Правый клик
-                        self.selected_building = None
-                        self.selected_barracks = None
-                        self.selected_mine = None
+                        if self.gold >= cost:
+                            self.gold -= cost
+                            new_building = Building(grid_x, grid_y, self.selected_building, self.difficulty)
+                            self.buildings.append(new_building)
+                            # После размещения здания сбрасываем выбор
+                            self.selected_building = None
+                else:
+                    # Сброс выбора
+                    self.selected_barracks = None
+                    self.selected_mine = None
 
-            elif self.state in [GameState.WIN, GameState.LOSE]:
+                    # Выбор здания для взаимодействия
+                    for building in self.buildings:
+                        if (building.x <= mouse_pos[0] <= building.x + building.width * GRID_SIZE and
+                                building.y <= mouse_pos[1] <= building.y + building.height * GRID_SIZE):
+                            if building.type == BuildingType.WALL and building.health <= 0:
+                                building.repair(self)
+                            elif building.type == BuildingType.BARRACKS:
+                                self.selected_barracks = building
+                            elif building.type == BuildingType.GOLD_MINE:
+                                self.selected_mine = building
+                            break
+
+        elif self.state in [GameState.WIN, GameState.LOSE]:
+            for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                     self.__init__()
 
@@ -825,34 +926,31 @@ class Game:
                 self.units.remove(unit)
 
     def draw(self):
-        self.screen.blit(textures['background'], (0, 0))
-
-        if self.state == GameState.BUILD:
-            for x in range(0, SCREEN_WIDTH, GRID_SIZE):
-                pygame.draw.line(self.screen, GRAY, (x, 0), (x, SCREEN_HEIGHT), 1)
-            for y in range(0, SCREEN_HEIGHT, GRID_SIZE):
-                pygame.draw.line(self.screen, GRAY, (0, y), (SCREEN_WIDTH, y), 1)
-
         if self.state == GameState.MENU:
-            title = self.font.render("Clash of Pygame", True, BLACK)
+            self.screen.blit(textures['menu_background'], (0, 0))
+
+            title = self.font.render("Clash of Berserk", True, WHITE)
             self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
 
-            pygame.draw.rect(self.screen, GREEN, (300, 200, 200, 50))
-            easy_text = self.font.render("Easy", True, BLACK)
-            self.screen.blit(easy_text, (400 - easy_text.get_width() // 2, 225 - easy_text.get_height() // 2))
+            self.easy_button.draw(self.screen, self.font)
+            self.medium_button.draw(self.screen, self.font)
+            self.hard_button.draw(self.screen, self.font)
 
-            pygame.draw.rect(self.screen, YELLOW, (300, 300, 200, 50))
-            medium_text = self.font.render("Medium", True, BLACK)
-            self.screen.blit(medium_text, (400 - medium_text.get_width() // 2, 325 - medium_text.get_height() // 2))
-
-            pygame.draw.rect(self.screen, RED, (300, 400, 200, 50))
-            hard_text = self.font.render("Hard", True, BLACK)
-            self.screen.blit(hard_text, (400 - hard_text.get_width() // 2, 425 - hard_text.get_height() // 2))
-
-            instructions = self.font.render("Select difficulty to start", True, BLACK)
+            instructions = self.small_font.render("Выберите уровень сложности", True, WHITE)
             self.screen.blit(instructions, (SCREEN_WIDTH // 2 - instructions.get_width() // 2, 500))
 
+        elif self.state == GameState.HELP:
+            self.draw_help_screen()
+
         elif self.state in [GameState.BUILD, GameState.BATTLE]:
+            self.screen.blit(textures['background'], (0, 0))
+
+            if self.state == GameState.BUILD:
+                for x in range(0, SCREEN_WIDTH, GRID_SIZE):
+                    pygame.draw.line(self.screen, GRAY, (x, 0), (x, SCREEN_HEIGHT), 1)
+                for y in range(0, SCREEN_HEIGHT, GRID_SIZE):
+                    pygame.draw.line(self.screen, GRAY, (0, y), (SCREEN_WIDTH, y), 1)
+
             for building in self.buildings:
                 building.draw(self.screen)
 
@@ -869,11 +967,12 @@ class Game:
             self.screen.blit(gold_text, (20, 60))
 
             if self.state == GameState.BUILD:
-                instructions = self.font.render("Press 1: Barracks (100g), 2: Gold Mine (75g), 3: Wall (50g)", True,
-                                                BLACK)
+                instructions = self.small_font.render("Press 1: Barracks (100g), 2: Gold Mine (75g), 3: Wall (50g)",
+                                                      True,
+                                                      BLACK)
                 self.screen.blit(instructions, (SCREEN_WIDTH // 2 - instructions.get_width() // 2, 20))
 
-                repair_text = self.font.render(
+                repair_text = self.small_font.render(
                     "Left-click: select/interact, Right-click: cancel, F: fund barrack, R: restore mine", True, BLACK)
                 self.screen.blit(repair_text, (SCREEN_WIDTH // 2 - repair_text.get_width() // 2, 60))
 
@@ -884,7 +983,7 @@ class Game:
                                   self.selected_barracks.width * GRID_SIZE + 4,
                                   self.selected_barracks.height * GRID_SIZE + 4), 2)
 
-                status_text = self.font.render(f"Press F to fund (50g)", True, BLUE)
+                status_text = self.small_font.render(f"Нажмите F чтобы востановить (50g)", True, BLUE)
                 self.screen.blit(status_text, (self.selected_barracks.x, self.selected_barracks.y - 30))
 
             if self.selected_mine:
@@ -894,7 +993,7 @@ class Game:
                                   self.selected_mine.height * GRID_SIZE + 4), 2)
 
                 if self.selected_mine.health <= 0:
-                    status_text = self.font.render(f"Press R to restore (75g)", True, YELLOW)
+                    status_text = self.small_font.render(f"Нажмите R чтобы востановить (75g)", True, YELLOW)
                     self.screen.blit(status_text, (self.selected_mine.x, self.selected_mine.y - 30))
 
             if self.selected_building:
@@ -921,13 +1020,18 @@ class Game:
 
                 self.screen.blit(preview, (grid_x, grid_y))
 
+            # Кнопка помощи
+            self.help_button.draw(self.screen, self.font)
+
         elif self.state == GameState.WIN:
-            win_text = self.font.render("Victory! Press R to restart", True, GREEN)
+            self.screen.blit(textures['background'], (0, 0))
+            win_text = self.font.render("Победа!", True, GREEN)
             self.screen.blit(win_text, (SCREEN_WIDTH // 2 - win_text.get_width() // 2,
                                         SCREEN_HEIGHT // 2 - win_text.get_height() // 2))
 
         elif self.state == GameState.LOSE:
-            lose_text = self.font.render("Defeat! Press R to restart", True, RED)
+            self.screen.blit(textures['background'], (0, 0))
+            lose_text = self.font.render("Поражение!", True, RED)
             self.screen.blit(lose_text, (SCREEN_WIDTH // 2 - lose_text.get_width() // 2,
                                          SCREEN_HEIGHT // 2 - lose_text.get_height() // 2))
 

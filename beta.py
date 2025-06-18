@@ -611,7 +611,7 @@ class Unit:
 class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Clash of Pygame")
+        pygame.display.set_caption("Clash of Berserk")
         self.clock = pygame.time.Clock()
         self.running = True
         self.state = GameState.MENU
@@ -747,6 +747,7 @@ class Game:
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
         mouse_click = False
+        right_click = False
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -755,6 +756,8 @@ class Game:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Левый клик
                     mouse_click = True
+                elif event.button == 3:  # Правый клик
+                    right_click = True
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_m:  # M - вкл/выкл музыку
@@ -773,7 +776,6 @@ class Game:
                         self.selected_barracks.refill_gold(self, 50)
                 elif event.key == pygame.K_r:  # R - восстановить шахту
                     if self.selected_mine and self.selected_mine.health <= 0:
-                        # Удаляем старую шахту и создаем новую на том же месте
                         self.buildings.remove(self.selected_mine)
                         new_mine = Building(self.selected_mine.x, self.selected_mine.y,
                                             BuildingType.GOLD_MINE, self.difficulty)
@@ -782,6 +784,18 @@ class Game:
                 elif event.key == pygame.K_ESCAPE:  # ESC - вернуться из меню помощи
                     if self.state == GameState.HELP:
                         self.state = GameState.BUILD if self.build_timer < self.build_time else GameState.BATTLE
+                elif event.key == pygame.K_1 and self.state in [GameState.BUILD, GameState.BATTLE]:
+                    self.selected_building = BuildingType.BARRACKS
+                    self.selected_barracks = None
+                    self.selected_mine = None
+                elif event.key == pygame.K_2 and self.state in [GameState.BUILD, GameState.BATTLE]:
+                    self.selected_building = BuildingType.GOLD_MINE
+                    self.selected_barracks = None
+                    self.selected_mine = None
+                elif event.key == pygame.K_3 and self.state in [GameState.BUILD, GameState.BATTLE]:
+                    self.selected_building = BuildingType.WALL
+                    self.selected_barracks = None
+                    self.selected_mine = None
 
         # Проверка кнопок
         if self.state == GameState.MENU:
@@ -813,87 +827,68 @@ class Game:
             if mouse_click and self.help_button.is_clicked(mouse_pos, mouse_click):
                 self.state = GameState.HELP
 
-            # Обработка событий для BUILD и BATTLE состояний
-            for event in pygame.event.get():  # Добавляем новый цикл для этих состояний
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_1:
-                        self.selected_building = BuildingType.BARRACKS
-                        self.selected_barracks = None
-                        self.selected_mine = None
-                    elif event.key == pygame.K_2:
-                        self.selected_building = BuildingType.GOLD_MINE
-                        self.selected_barracks = None
-                        self.selected_mine = None
-                    elif event.key == pygame.K_3:
-                        self.selected_building = BuildingType.WALL
-                        self.selected_barracks = None
-                        self.selected_mine = None
+            if right_click:  # Обработка ПКМ для отмены выбора
+                self.selected_building = None
+                self.selected_barracks = None
+                self.selected_mine = None
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
+            if mouse_click:
+                if self.selected_building:
+                    grid_x = (mouse_pos[0] // GRID_SIZE) * GRID_SIZE
+                    grid_y = (mouse_pos[1] // GRID_SIZE) * GRID_SIZE
 
-                    if event.button == 1:  # Левый клик
-                        if self.selected_building:
-                            grid_x = (mouse_pos[0] // GRID_SIZE) * GRID_SIZE
-                            grid_y = (mouse_pos[1] // GRID_SIZE) * GRID_SIZE
+                    valid_position = True
+                    new_width = 2 if self.selected_building in [BuildingType.TOWN_HALL, BuildingType.BARRACKS] else 1
+                    new_height = 2 if self.selected_building in [BuildingType.TOWN_HALL, BuildingType.BARRACKS] else 1
 
-                            valid_position = True
-                            new_width = 2 if self.selected_building in [BuildingType.TOWN_HALL,
-                                                                        BuildingType.BARRACKS] else 1
-                            new_height = 2 if self.selected_building in [BuildingType.TOWN_HALL,
-                                                                         BuildingType.BARRACKS] else 1
+                    if (grid_x < BORDER_OFFSET or
+                            grid_x + new_width * GRID_SIZE > SCREEN_WIDTH - BORDER_OFFSET or
+                            grid_y < BORDER_OFFSET or
+                            grid_y + new_height * GRID_SIZE > SCREEN_HEIGHT - BORDER_OFFSET):
+                        valid_position = False
 
-                            if (grid_x < BORDER_OFFSET or
-                                    grid_x + new_width * GRID_SIZE > SCREEN_WIDTH - BORDER_OFFSET or
-                                    grid_y < BORDER_OFFSET or
-                                    grid_y + new_height * GRID_SIZE > SCREEN_HEIGHT - BORDER_OFFSET):
-                                valid_position = False
+                    for building in self.buildings:
+                        if (grid_x < building.x + building.width * GRID_SIZE and
+                                grid_x + new_width * GRID_SIZE > building.x and
+                                grid_y < building.y + building.height * GRID_SIZE and
+                                grid_y + new_height * GRID_SIZE > building.y):
+                            valid_position = False
+                            break
 
-                            for building in self.buildings:
-                                if (grid_x < building.x + building.width * GRID_SIZE and
-                                        grid_x + new_width * GRID_SIZE > building.x and
-                                        grid_y < building.y + building.height * GRID_SIZE and
-                                        grid_y + new_height * GRID_SIZE > building.y):
-                                    valid_position = False
-                                    break
+                    if valid_position:
+                        cost = 0
+                        if self.selected_building == BuildingType.BARRACKS:
+                            cost = 100
+                        elif self.selected_building == BuildingType.GOLD_MINE:
+                            cost = 75
+                        elif self.selected_building == BuildingType.WALL:
+                            cost = 50
 
-                            if valid_position:
-                                cost = 0
-                                if self.selected_building == BuildingType.BARRACKS:
-                                    cost = 100
-                                elif self.selected_building == BuildingType.GOLD_MINE:
-                                    cost = 75
-                                elif self.selected_building == BuildingType.WALL:
-                                    cost = 50
+                        if self.gold >= cost:
+                            self.gold -= cost
+                            new_building = Building(grid_x, grid_y, self.selected_building, self.difficulty)
+                            self.buildings.append(new_building)
+                            # После размещения здания сбрасываем выбор
+                            self.selected_building = None
+                else:
+                    # Сброс выбора
+                    self.selected_barracks = None
+                    self.selected_mine = None
 
-                                if self.gold >= cost:
-                                    self.gold -= cost
-                                    new_building = Building(grid_x, grid_y, self.selected_building, self.difficulty)
-                                    self.buildings.append(new_building)
-                        else:
-                            # Сброс выбора
-                            self.selected_barracks = None
-                            self.selected_mine = None
-
-                            # Выбор здания для взаимодействия
-                            for building in self.buildings:
-                                if (building.x <= mouse_pos[0] <= building.x + building.width * GRID_SIZE and
-                                        building.y <= mouse_pos[1] <= building.y + building.height * GRID_SIZE):
-                                    if building.type == BuildingType.WALL and building.health <= 0:
-                                        building.repair(self)
-                                    elif building.type == BuildingType.BARRACKS:
-                                        self.selected_barracks = building
-                                    elif building.type == BuildingType.GOLD_MINE:
-                                        self.selected_mine = building
-                                    break
-
-                    elif event.button == 3:  # Правый клик
-                        self.selected_building = None
-                        self.selected_barracks = None
-                        self.selected_mine = None
+                    # Выбор здания для взаимодействия
+                    for building in self.buildings:
+                        if (building.x <= mouse_pos[0] <= building.x + building.width * GRID_SIZE and
+                                building.y <= mouse_pos[1] <= building.y + building.height * GRID_SIZE):
+                            if building.type == BuildingType.WALL and building.health <= 0:
+                                building.repair(self)
+                            elif building.type == BuildingType.BARRACKS:
+                                self.selected_barracks = building
+                            elif building.type == BuildingType.GOLD_MINE:
+                                self.selected_mine = building
+                            break
 
         elif self.state in [GameState.WIN, GameState.LOSE]:
-            for event in pygame.event.get():  # Добавляем цикл для этих состояний
+            for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                     self.__init__()
 
