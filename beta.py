@@ -4,19 +4,18 @@ import math
 import sys
 from enum import Enum
 
-# Initialize pygame
 pygame.init()
 
-pygame.mixer.init()  # Инициализация аудио модуля
+pygame.mixer.init()
 
-# Game constants
+# Константы
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 768
 FPS = 60
 GRID_SIZE = 64
 BORDER_OFFSET = GRID_SIZE * 2
 
-# Colors
+# Цвета
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
@@ -53,9 +52,9 @@ textures = {
     'giant_enemy': load_texture('texture/giant.png', (50, 50))
 }
 
-# Загрузка музыки (добавьте это в раздел загрузки ресурсов)
+# Загрузка музыки
 try:
-    pygame.mixer.music.load('music/Linkin_Park_-_Somewhere_I_Belong.mp3')  # Укажите путь к вашему музыкальному файлу
+    pygame.mixer.music.load('music/Linkin_Park_-_Somewhere_I_Belong.mp3')
     music_loaded = True
 except:
     print("Не удалось загрузить музыку")
@@ -132,23 +131,23 @@ class Building:
             self.width = 2
             self.height = 2
         elif building_type == BuildingType.BARRACKS:
-            self.health = 200  # Теперь у бараков есть здоровье
+            self.health = 200
             self.max_health = 200
             self.width = 2
             self.height = 2
             self.spawn_timer = 0
             self.spawn_interval = 8000
-            self.gold_reserve = 0  # Золотой запас для найма войск
-            self.hire_cost = 20  # Стоимость найма одного война
+            self.gold_reserve = 0
+            self.hire_cost = 20
         elif building_type == BuildingType.GOLD_MINE:
-            self.health = 150  # Здоровье шахты
+            self.health = 150
             self.max_health = 150
             self.width = 1
             self.height = 1
             self.gold_timer = 0
-            self.gold_interval = 5000  # Интервал генерации золота (5 секунд)
-            self.gold_amount = 25  # Количество золота за интервал
-            self.depletion_rate = 5  # На сколько уменьшается здоровье при добыче
+            self.gold_interval = 5000
+            self.gold_amount = 25
+            self.depletion_rate = 5
         elif building_type == BuildingType.WALL:
             self.health = 300
             self.max_health = 300
@@ -407,7 +406,6 @@ class Unit:
                     dist_to_wall = math.sqrt((self.x - wall_center_x) ** 2 + (self.y - wall_center_y) ** 2)
 
                     if dist_to_wall <= self.attack_range:
-                        # Атакуем стену
                         self.last_attack += dt
                         if self.last_attack >= self.attack_cooldown:
                             self.last_attack = 0
@@ -415,7 +413,7 @@ class Unit:
 
                             # Если стену сломали
                             if self.target_wall.health <= 0:
-                                self.broken_wall = self.target_wall  # Запоминаем сломанную стену
+                                self.broken_wall = self.target_wall
                                 self.target_wall = None
                     else:
                         # Двигаемся к стене
@@ -442,7 +440,6 @@ class Unit:
                     self.y += self.speed * math.sin(angle)
                 return
 
-            # Ищем лучший путь: через сломанную стену или ломать новую
             closest_wall = None
             closest_broken_wall = None
             min_wall_dist = float('inf')
@@ -545,7 +542,6 @@ class Unit:
     def line_intersects_rect(self, p1, p2, rect):
         """Проверяет, пересекает ли линия p1-p2 прямоугольник rect"""
 
-        # Алгоритм Liang-Barsky для проверки пересечения линии и прямоугольника
         def clip(denom, numer, t0, t1):
             if denom == 0:
                 return numer <= 0
@@ -598,7 +594,7 @@ class Unit:
                              (int(self.target.x), int(self.target.y)),
                              2)
 
-        # Health bar
+
         health_ratio = self.health / self.max_health
         pygame.draw.rect(screen, RED,
                          (int(self.x - self.radius), int(self.y - self.radius - 10),
@@ -616,11 +612,11 @@ class Game:
         self.running = True
         self.state = GameState.MENU
         self.difficulty = Difficulty.EASY
-        self.build_time = 3000  # 3 минуты на строительство
+        self.build_time = 3000
         self.build_timer = 0
         self.wave = 0
         self.wave_timer = 0
-        self.wave_interval = 3000  # 40 секунд между волнами
+        self.wave_interval = 3000
         self.gold = 500
         self.selected_building = None
         self.buildings = []
@@ -737,11 +733,10 @@ class Game:
         ]
 
         for i, line in enumerate(controls):
-            if line:  # Пропускаем пустые строки
+            if line:
                 text = self.small_font.render(line, True, WHITE)
                 self.screen.blit(text, (100, 120 + i * 30))
 
-        # Кнопка назад
         self.back_button.draw(self.screen, self.font)
 
     def handle_events(self):
@@ -754,9 +749,9 @@ class Game:
                 self.running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Левый клик
+                if event.button == 1:
                     mouse_click = True
-                elif event.button == 3:  # Правый клик
+                elif event.button == 3:
                     right_click = True
 
             if event.type == pygame.KEYDOWN:
@@ -765,23 +760,23 @@ class Game:
                         pygame.mixer.music.pause()
                     else:
                         pygame.mixer.music.unpause()
-                elif event.key == pygame.K_PLUS:  # + - увеличить громкость
+                elif event.key == pygame.K_PLUS:
                     vol = min(1.0, pygame.mixer.music.get_volume() + 0.1)
                     pygame.mixer.music.set_volume(vol)
-                elif event.key == pygame.K_MINUS:  # - - уменьшить громкость
+                elif event.key == pygame.K_MINUS:
                     vol = max(0.0, pygame.mixer.music.get_volume() - 0.1)
                     pygame.mixer.music.set_volume(vol)
-                elif event.key == pygame.K_f:  # F - пополнить запас выбранного барака
+                elif event.key == pygame.K_f:
                     if self.selected_barracks:
                         self.selected_barracks.refill_gold(self, 50)
-                elif event.key == pygame.K_r:  # R - восстановить шахту
+                elif event.key == pygame.K_r:
                     if self.selected_mine and self.selected_mine.health <= 0:
                         self.buildings.remove(self.selected_mine)
                         new_mine = Building(self.selected_mine.x, self.selected_mine.y,
                                             BuildingType.GOLD_MINE, self.difficulty)
                         self.buildings.append(new_mine)
                         self.selected_mine = new_mine
-                elif event.key == pygame.K_ESCAPE:  # ESC - вернуться из меню помощи
+                elif event.key == pygame.K_ESCAPE:
                     if self.state == GameState.HELP:
                         self.state = GameState.BUILD if self.build_timer < self.build_time else GameState.BATTLE
                 elif event.key == pygame.K_1 and self.state in [GameState.BUILD, GameState.BATTLE]:
@@ -827,7 +822,7 @@ class Game:
             if mouse_click and self.help_button.is_clicked(mouse_pos, mouse_click):
                 self.state = GameState.HELP
 
-            if right_click:  # Обработка ПКМ для отмены выбора
+            if right_click:
                 self.selected_building = None
                 self.selected_barracks = None
                 self.selected_mine = None
@@ -868,7 +863,6 @@ class Game:
                             self.gold -= cost
                             new_building = Building(grid_x, grid_y, self.selected_building, self.difficulty)
                             self.buildings.append(new_building)
-                            # После размещения здания сбрасываем выбор
                             self.selected_building = None
                 else:
                     # Сброс выбора
@@ -929,7 +923,7 @@ class Game:
         if self.state == GameState.MENU:
             self.screen.blit(textures['menu_background'], (0, 0))
 
-            title = self.font.render("Clash of Pygame", True, WHITE)
+            title = self.font.render("Clash of Berserk", True, WHITE)
             self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
 
             self.easy_button.draw(self.screen, self.font)
@@ -959,21 +953,21 @@ class Game:
 
             time_left = max(0, (self.build_time - self.build_timer) // 1000) if self.state == GameState.BUILD else 0
             timer_text = self.font.render(
-                f"Build Time: {time_left}s" if self.state == GameState.BUILD else f"Wave: {self.wave + 1}/3", True,
+                f"Время строится: {time_left}s" if self.state == GameState.BUILD else f"Волна: {self.wave + 1}/3", True,
                 BLACK)
             self.screen.blit(timer_text, (20, 20))
 
-            gold_text = self.font.render(f"Gold: {self.gold}", True, YELLOW)
+            gold_text = self.font.render(f"Золото: {self.gold}", True, YELLOW)
             self.screen.blit(gold_text, (20, 60))
 
             if self.state == GameState.BUILD:
-                instructions = self.small_font.render("Press 1: Barracks (100g), 2: Gold Mine (75g), 3: Wall (50g)",
+                instructions = self.small_font.render("",
                                                       True,
                                                       BLACK)
                 self.screen.blit(instructions, (SCREEN_WIDTH // 2 - instructions.get_width() // 2, 20))
 
                 repair_text = self.small_font.render(
-                    "Left-click: select/interact, Right-click: cancel, F: fund barrack, R: restore mine", True, BLACK)
+                    "", True, BLACK)
                 self.screen.blit(repair_text, (SCREEN_WIDTH // 2 - repair_text.get_width() // 2, 60))
 
             # Подсветка выбранного здания
@@ -983,7 +977,7 @@ class Game:
                                   self.selected_barracks.width * GRID_SIZE + 4,
                                   self.selected_barracks.height * GRID_SIZE + 4), 2)
 
-                status_text = self.small_font.render(f"Press F to fund (50g)", True, BLUE)
+                status_text = self.small_font.render(f"Нажмите F чтобы востановить (50g)", True, BLUE)
                 self.screen.blit(status_text, (self.selected_barracks.x, self.selected_barracks.y - 30))
 
             if self.selected_mine:
@@ -993,7 +987,7 @@ class Game:
                                   self.selected_mine.height * GRID_SIZE + 4), 2)
 
                 if self.selected_mine.health <= 0:
-                    status_text = self.small_font.render(f"Press R to restore (75g)", True, YELLOW)
+                    status_text = self.small_font.render(f"Нажмите R чтобы востановить (75g)", True, YELLOW)
                     self.screen.blit(status_text, (self.selected_mine.x, self.selected_mine.y - 30))
 
             if self.selected_building:
@@ -1025,13 +1019,13 @@ class Game:
 
         elif self.state == GameState.WIN:
             self.screen.blit(textures['background'], (0, 0))
-            win_text = self.font.render("Victory! Press R to restart", True, GREEN)
+            win_text = self.font.render("Победа!", True, GREEN)
             self.screen.blit(win_text, (SCREEN_WIDTH // 2 - win_text.get_width() // 2,
                                         SCREEN_HEIGHT // 2 - win_text.get_height() // 2))
 
         elif self.state == GameState.LOSE:
             self.screen.blit(textures['background'], (0, 0))
-            lose_text = self.font.render("Defeat! Press R to restart", True, RED)
+            lose_text = self.font.render("Поражение!", True, RED)
             self.screen.blit(lose_text, (SCREEN_WIDTH // 2 - lose_text.get_width() // 2,
                                          SCREEN_HEIGHT // 2 - lose_text.get_height() // 2))
 
@@ -1040,8 +1034,8 @@ class Game:
     def run(self):
         # Воспроизведение музыки
         if music_loaded:
-            pygame.mixer.music.play(-1)  # -1 означает бесконечный цикл
-            pygame.mixer.music.set_volume(0.5)  # Громкость от 0.0 до 1.0
+            pygame.mixer.music.play(-1)
+            pygame.mixer.music.set_volume(0.5)
 
         while self.running:
             self.clock.tick(FPS)
@@ -1051,8 +1045,3 @@ class Game:
 
         pygame.quit()
         sys.exit()
-
-
-if __name__ == "__main__":
-    game = Game()
-    game.run()
